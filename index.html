@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tronex OS</title>
+    <style>
+      :root {
+        --background: #020402;
+        --panel: rgba(0, 0, 0, 0.9);
+        --border: rgba(0, 255, 102, 0.25);
+        --border-strong: rgba(0, 255, 102, 0.6);
+        --text: #9cff9c;
+        --text-bright: #d4ffd4;
+        --accent: #00ff65;
+        --muted: #72ff72;
+      }
+
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Lucida Console", "Courier New", monospace;
+        background: radial-gradient(circle at top left, rgba(0, 255, 102, 0.08), transparent 22%),
+          linear-gradient(180deg, #020402 0%, #061206 45%, #020402 100%);
+        color: var(--text);
+      }
+
+      body.flash {
+        animation: screenFlash 0.2s ease-in-out;
+      }
+
+      @keyframes screenFlash {
+        0%, 100% {
+          filter: brightness(1);
+          background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.35), transparent 22%),
+            linear-gradient(180deg, #ffffff 0%, #e8ffe8 30%, #020402 100%);
+        }
+        50% {
+          filter: brightness(1.7);
+        }
+      }
+
+      .fullscreen-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        z-index: 999;
+      }
+
+      .power-console {
+        width: min(980px, calc(100% - 2rem));
+        padding: 2rem;
+        border-radius: 24px;
+        background: radial-gradient(circle at top left, rgba(0, 255, 102, 0.08), transparent 25%),
+          rgba(0, 0, 0, 0.92);
+        border: 1px solid var(--border);
+        box-shadow: 0 0 60px rgba(0, 255, 102, 0.14);
+      }
+
+      .phase-header {
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .phase-header h2 {
+        margin: 0;
+        font-size: 1.95rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .phase-header small {
+        color: var(--muted);
+      }
+
+      .phase-grid {
+        display: grid;
+        gap: 1.5rem;
+      }
+
+      @media (min-width: 860px) {
+        .phase-grid {
+          grid-template-columns: 1.1fr 340px;
+        }
+      }
+
+      #pi-board {
+        position: relative;
+        min-height: 260px;
+        border: 2px dashed var(--border);
+        border-radius: 24px;
+        background: radial-gradient(circle at top left, rgba(0, 255, 102, 0.12), transparent 30%),
+          rgba(0, 10, 0, 0.95);
+        display: grid;
+        align-items: center;
+        justify-items: center;
+        padding: 2rem;
+      }
+
+      #pi-board.board-hover {
+        border-color: var(--border-strong);
+        box-shadow: inset 0 0 24px rgba(0, 255, 102, 0.2);
+      }
+
+      .board-label {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        color: var(--text-bright);
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      #status-led {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.85rem 1.2rem;
+        border-radius: 999px;
+        border: 1px solid #555;
+        background: rgba(0, 0, 0, 0.55);
+        color: #c1c1c1;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      #status-led.on {
+        border-color: var(--accent);
+        color: var(--accent);
+        box-shadow: 0 0 16px rgba(0, 255, 102, 0.4);
+      }
+
+      #usb-cable {
+        width: 200px;
+        min-height: 90px;
+        padding: 1rem;
+        border-radius: 24px;
+        border: 2px solid var(--border);
+        background: rgba(0, 10, 0, 0.9);
+        display: grid;
+        place-items: center;
+        color: var(--text-bright);
+        cursor: grab;
+        user-select: none;
+        box-shadow: 0 0 30px rgba(0, 255, 102, 0.12);
+      }
+
+      #usb-cable.dragging {
+        opacity: 0.6;
+        transform: scale(0.98);
+      }
+
+      #usb-cable .cable-tip {
+        width: 80%;
+        height: 12px;
+        background: var(--accent);
+        border-radius: 999px;
+        margin-top: 0.85rem;
+        box-shadow: 0 0 12px rgba(0, 255, 102, 0.35);
+      }
+
+      .status-panel {
+        margin-top: 1.5rem;
+        padding: 1.2rem 1.25rem;
+        border-radius: 20px;
+        border: 1px solid rgba(0, 255, 102, 0.12);
+        background: rgba(0, 0, 0, 0.65);
+        color: var(--text-bright);
+        line-height: 1.7;
+      }
+
+      .fade-out {
+        opacity: 0;
+        transition: opacity 0.8s ease;
+      }
+
+      #boot-screen {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #020402;
+        z-index: 998;
+        padding: 2rem;
+        color: var(--text);
+      }
+
+      #boot-screen.active {
+        display: block;
+      }
+
+      .boot-shell {
+        width: min(1080px, calc(100% - 1rem));
+        margin: 0 auto;
+      }
+
+      .boot-shell h2 {
+        margin: 0 0 1rem;
+        color: var(--accent);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-size: clamp(1.9rem, 3vw, 2.4rem);
+      }
+
+      .boot-note {
+        margin: 0 0 1.5rem;
+        color: var(--muted);
+      }
+
+      #terminal-log {
+        min-height: 40vh;
+        max-height: 60vh;
+        width: min(1040px, calc(100vw - 2rem));
+        overflow-y: auto;
+        padding: 1rem;
+        border-radius: 20px;
+        border: 1px solid rgba(0, 255, 102, 0.16);
+        background: rgba(0, 0, 0, 0.95);
+        box-shadow: inset 0 0 20px rgba(0, 255, 102, 0.08);
+      }
+
+      #terminal-log p {
+        margin: 0 0 0.75rem;
+        color: #a5ff9b;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        font-size: 0.92rem;
+      }
+
+      #main-app {
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.8s ease, visibility 0.8s ease;
+      }
+
+      #main-app.visible {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      #virtual-os {
+        display: none;
+        min-height: 100vh;
+        padding: 2rem 2rem 6rem;
+        background: url('./rtx.jpeg') center/cover no-repeat;
+        color: var(--text);
+        <div id="os-timer" style="color:#7dfd8f; margin-top:1rem; font-family:monospace;">
+  OS Time: 00:00
+</div>
+      }
+
+      #virtual-os.active {
+        display: block;
+      }
+
+      .desktop-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: minmax(260px, 300px) 1fr;
+      }
+
+      .os-panel {
+        background: rgba(0, 0, 0, 0.78);
+        border: 1px solid rgba(0, 255, 102, 0.18);
+        border-radius: 22px;
+        padding: 1.25rem;
+        box-shadow: 0 24px 60px rgba(0, 255, 102, 0.08);
+      }
+
+      .os-window {
+        background: rgba(4, 16, 4, 0.95);
+        border: 1px solid rgba(0, 255, 102, 0.22);
+        border-radius: 18px;
+        overflow: hidden;
+      }
+
+      .os-window-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.9rem 1rem;
+        border-bottom: 1px solid rgba(0, 255, 102, 0.12);
+        background: rgba(0, 0, 0, 0.82);
+      }
+
+      .os-window-title {
+        color: var(--accent);
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .os-window-body {
+        padding: 1rem;
+        line-height: 1.7;
+        color: #c8ffb2;
+      }
+
+      .os-file-item {
+        margin: 0.6rem 0;
+        padding: 0.85rem 0.95rem;
+        border-radius: 14px;
+        background: rgba(0, 255, 102, 0.06);
+        border: 1px solid rgba(0, 255, 102, 0.12);
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .os-file-item:hover {
+        background: rgba(0, 255, 102, 0.14);
+        transform: translateX(2px);
+      }
+
+      .taskbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 60px;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 1.5rem;
+        background: rgba(0, 0, 0, 0.95);
+        border-top: 1px solid rgba(0, 255, 102, 0.18);
+      }
+
+      .taskbar-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: var(--text);
+        font-size: 0.95rem;
+      }
+
+      .taskbar-button {
+        padding: 0.75rem 1rem;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 255, 102, 0.2);
+        background: rgba(0, 255, 102, 0.08);
+        color: var(--text-bright);
+        cursor: pointer;
+      }
+
+      .os-header {
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .os-header h2 {
+        margin: 0;
+        color: var(--accent);
+        font-size: clamp(1.75rem, 2.5vw, 2.5rem);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .os-header p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .os-grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      @media (min-width: 900px) {
+        .os-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .os-quick-links {
+        display: grid;
+        gap: 0.85rem;
+        margin-top: 1rem;
+      }
+
+      .os-quick-link {
+        padding: 0.85rem 1rem;
+        border-radius: 16px;
+        background: rgba(0, 255, 102, 0.06);
+        border: 1px solid rgba(0, 255, 102, 0.12);
+        color: var(--text-bright);
+        cursor: pointer;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 1080px;
+        padding: 2rem;
+        border-radius: 28px;
+        background: rgba(0, 0, 0, 0.88);
+        border: 1px solid rgba(0, 255, 102, 0.18);
+        box-shadow: 0 30px 80px rgba(0, 255, 115, 0.18);
+        margin: auto;
+      }
+
+      .breadcrumbs {
+        display: inline-flex;
+        gap: 0.5rem;
+        color: var(--muted);
+        margin-bottom: 1.5rem;
+        text-shadow: 0 0 8px rgba(0, 255, 102, 0.18);
+      }
+
+      .breadcrumbs span {
+        color: var(--accent);
+      }
+
+      .panel-nav {
+        display: flex;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.75rem;
+      }
+
+      .panel-btn {
+        padding: 0.9rem 1.2rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: rgba(0, 0, 0, 0.55);
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.25s ease, border-color 0.25s ease;
+        font-family: "Lucida Console", "Courier New", monospace;
+      }
+
+      .panel-btn.active,
+      .panel-btn:hover {
+        border-color: var(--border);
+        background: rgba(0, 255, 102, 0.12);
+      }
+
+      .panel {
+        display: none;
+      }
+
+      .panel.active {
+        display: block;
+      }
+
+      .hero-row {
+        display: grid;
+        gap: 1.75rem;
+      }
+
+      @media (min-width: 900px) {
+        .hero-row {
+          grid-template-columns: 1.15fr 0.85fr;
+        }
+      }
+
+      .hero-card,
+      .settings-card,
+      .dashboard-card,
+      .credits-card {
+        background: rgba(0, 0, 0, 0.72);
+        border: 1px solid rgba(0, 255, 102, 0.18);
+        border-radius: 24px;
+        padding: 1.75rem;
+        box-shadow: 0 18px 40px rgba(0, 255, 102, 0.12);
+      }
+
+      .hero-title {
+        font-size: clamp(3rem, 4vw, 5rem);
+        margin: 0;
+        line-height: 0.98;
+        letter-spacing: 0.14em;
+        color: var(--accent);
+        text-shadow: 0 0 24px rgba(0, 255, 102, 0.25);
+      }
+
+      .subtitle {
+        margin: 0.8rem 0 1.5rem;
+        color: var(--text-bright);
+        line-height: 1.8;
+      }
+
+      .typewriter {
+        min-height: 1.5rem;
+        color: var(--accent);
+        letter-spacing: 0.09em;
+        margin-bottom: 1.2rem;
+      }
+
+      .status-box {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        margin-bottom: 1.75rem;
+      }
+
+      .status-card {
+        padding: 1.4rem 1.35rem;
+        border-radius: 20px;
+        background: rgba(0, 0, 0, 0.78);
+        border: 1px dashed rgba(0, 255, 102, 0.18);
+      }
+
+      .status-card strong {
+        display: block;
+        margin-bottom: 0.7rem;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .status-card p {
+        margin: 0;
+        color: var(--text-bright);
+      }
+
+      .dashboard-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        margin-top: 1rem;
+      }
+
+      .hero-image {
+        width: 100%;
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 255, 102, 0.18);
+      }
+
+      .hero-image img {
+        width: 100%;
+        display: block;
+        transition: transform 0.5s ease, filter 0.5s ease;
+        filter: saturate(0.3) contrast(1.3) brightness(0.88);
+      }
+
+      .hero-image:hover img {
+        transform: scale(1.03);
+      }
+
+      .button-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.95rem 1.8rem;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 255, 102, 0.45);
+        background: linear-gradient(135deg, rgba(0, 255, 102, 0.96), rgba(0, 180, 70, 0.9));
+        color: #020902;
+        text-decoration: none;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 42px rgba(0, 255, 102, 0.16);
+      }
+
+      .secondary {
+        background: rgba(0, 0, 0, 0.62);
+        color: var(--text);
+      }
+
+      .status-message {
+        padding: 1.5rem 1.5rem 1.35rem;
+        border-radius: 20px;
+        margin-top: 1.25rem;
+        background: rgba(0, 255, 102, 0.08);
+        color: #00ff6f;
+        border: 1px solid rgba(0, 255, 102, 0.3);
+        font-family: "Lucida Console", "Courier New", monospace;
+        white-space: pre-line;
+        display: none;
+        text-shadow: 0 0 18px rgba(0, 255, 102, 0.4);
+      }
+
+      .status-message.active {
+        display: block;
+      }
+
+      .settings-card h3,
+      .dashboard-card h3,
+      .credits-card h3 {
+        margin-top: 0;
+        color: var(--accent);
+      }
+
+      .scroll-box {
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 0.75rem;
+        margin-top: 1rem;
+        border: 1px solid rgba(0, 255, 102, 0.16);
+        border-radius: 20px;
+        background: rgba(0, 0, 0, 0.6);
+      }
+
+      .scroll-box p {
+        margin: 0;
+        padding: 0.9rem 1rem;
+        border-bottom: 1px dashed rgba(0, 255, 102, 0.14);
+        color: var(--text-bright);
+      }
+
+      .scroll-box p:last-child {
+        border-bottom: none;
+      }
+
+      .scroll-box::-webkit-scrollbar {
+        width: 10px;
+      }
+
+      .scroll-box::-webkit-scrollbar-track {
+        background: rgba(0, 255, 102, 0.08);
+      }
+
+      .scroll-box::-webkit-scrollbar-thumb {
+        background: rgba(0, 255, 102, 0.4);
+        border-radius: 999px;
+      }
+
+      .slider-row,
+      .toggle-row {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .slider-row label,
+      .toggle-row label {
+        color: var(--text-bright);
+        font-size: 0.95rem;
+      }
+
+      .slider-row input[type='range'] {
+        width: 100%;
+      }
+
+      .toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 18px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(0, 255, 102, 0.12);
+      }
+
+      .toggle span {
+        color: var(--text-bright);
+      }
+
+      .toggle input {
+        accent-color: #00ff65;
+      }
+
+      .panel-note {
+        margin-top: 1rem;
+        color: #7efb7e;
+        opacity: 0.9;
+      }
+
+      .credits-card p {
+        margin: 0.8rem 0 0;
+        color: #b8ffb8;
+        line-height: 1.7;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="phase1-screen" class="fullscreen-overlay">
+      <div class="power-console" id="phase1-container">
+        <div class="phase-header">
+          <h2>Phase 1: The Dark Void</h2>
+          <small>Drop the virtual USB cable to power up the simulated system.</small>
+        </div>
+
+        <div class="phase-grid">
+          <div id="pi-board">
+            <div class="board-label">PI 5 Power Interface</div>
+            <div id="status-led" class="off">OFFLINE</div>
+          </div>
+
+          <div id="usb-cable" draggable="true">
+            <span>USB-C CABLE</span>
+            <div class="cable-tip"></div>
+          </div>
+        </div>
+
+        <div class="status-panel">
+          Use the virtual cable to connect the interface. This is a software simulation, so physical hardware is not required.
+          <button id="skipBootBtn" class="btn secondary" type="button" style="margin-top:1rem; display:none;">Skip USB Boot</button>
+          <p id="saved-account-note" style="margin-top:0.75rem; color:#7dfd8f; font-size:0.95rem;"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="boot-screen">
+      <div class="boot-shell">
+        <h2>Phase 3: The Diagnostic Roll</h2>
+        <p class="boot-note">Simulating the Pi5 + ESP32 boot diagnostics with a staggered terminal log.</p>
+        <div id="terminal-log"></div>
+      </div>
+    </div>
+
+    <main id="main-app">
+      <div class="container">
+        <div class="breadcrumbs">
+          <span>Home</span> › <span>Welcome</span>
+        </div>
+
+        <div class="panel-nav">
+          <button class="panel-btn active" data-panel="overview">Overview</button>
+          <button class="panel-btn" data-panel="settings">Settings</button>
+          <button class="panel-btn" data-panel="credits">Credits</button>
+        </div>
+
+        <section class="panel active" id="overview">
+          <div class="hero-row">
+            <div class="hero-card">
+              <h1 class="hero-title">Welcome to Tronex OS</h1>
+              <div class="subtitle">
+                TRONEX ESP-32 OS simulates breadboard circuits, ESP32 workflows, and Raspberry Pi intelligence inside a hacker-style virtual environment.
+              </div>
+              <div class="typewriter" id="typewriter"></div>
+
+              <div class="status-box">
+                <div class="status-card">
+                  <strong>Virtual ESP32 Module</strong>
+                  <p>Simulated diagnostics, interactive software status, and module command execution.</p>
+                </div>
+                <div class="status-card">
+                  <strong>Virtual Pi5 Interface</strong>
+                  <p>Software search utilities, system controls, terminal-style quick links, and virtual dashboard control.</p>
+                </div>
+                <div class="status-card">
+                  <strong>Advanced Features</strong>
+                  <p>Custom settings, animated startup, and integrated tutorial access.</p>
+                </div>
+              </div>
+
+              <div class="button-row">
+                <a href="README.md" class="btn">Open Tutorial</a>
+                <button class="btn" id="launchOsBtn" type="button">Launch OS</button>
+                <button class="btn secondary" id="circuitBtn" type="button">Check Simulation Status</button>
+              </div>
+
+              <div id="statusMessage" class="status-message">
+                SIMULATION ONLINE
+
+    When the simulation reaches ready state, this message glows hacker green:
+
+    YOU ARE READY FOR TRONEX OS
+              </div>
+            </div>
+
+            <div class="hero-image">
+              <img src="esp32.jpg" alt="Virtual ESP32 board render" />
+            </div>
+          </div>
+
+          <div class="dashboard-card">
+            <h3>System Dashboard</h3>
+            <div class="dashboard-grid">
+              <div class="status-card">
+                <strong>CPU</strong>
+                <p>ESP32 core load: 18%</p>
+              </div>
+              <div class="status-card">
+                <strong>Memory</strong>
+                <p>RAM usage: 42% / 512MB</p>
+              </div>
+              <div class="status-card">
+                <strong>Network</strong>
+                <p>Latency stable • 23ms</p>
+              </div>
+              <div class="status-card">
+                <strong>Board</strong>
+                <p>GPIO active pins: 7 / 18</p>
+              </div>
+            </div>
+            <div class="panel-note">This page is a fully virtual simulation environment; no physical ESP32 or Pi5 hardware is required.</div>
+          </div>
+        </section>
+
+        <section class="panel" id="settings">
+          <div class="settings-card">
+            <h3>Customized Settings</h3>
+            <div class="slider-row">
+              <label for="volumeRange">Volume Control</label>
+              <input type="range" id="volumeRange" min="0" max="100" value="46" />
+              <div class="toggle">
+                <span>Current Volume</span>
+                <strong id="volumeValue">46%</strong>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle">
+                <span>Dashboard Motion</span>
+                <input type="checkbox" id="motionToggle" checked />
+              </div>
+              <div class="toggle">
+                <span>Scrollbar Glow</span>
+                <input type="checkbox" id="scrollbarToggle" checked />
+              </div>
+            </div>
+
+            <div class="scroll-box" id="scrollLog">
+              <p>BOOT: Tronex OS initialization sequence started.</p>
+              <p>BOOT: Virtual ESP32 handshake successful.</p>
+              <p>BOOT: Virtual Pi5 subsystem loaded.</p>
+              <p>STATUS: Secure simulation connection active.</p>
+              <p>STATUS: UI theme set to hacker black + green.</p>
+              <p>UPDATE: Dashboard metrics ready.</p>
+              <p>NOTE: Click Overview to view live simulated board layout.</p>
+              <p>NOTE: Use Settings to personalize your interface.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="credits">
+          <div class="credits-card">
+            <h3>Credits</h3>
+            <p>Developed by Shreeansh B.</p>
+            <p>Crafted as a virtual hacker aesthetic simulating ESP32 breadboard and Raspberry Pi integration.</p>
+            <p>Powered by animated terminal text, advanced dashboard cards, and custom interface controls.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <section id="virtual-os">
+      <div class="os-header">
+        <div>
+          <h2>TRONEX OS Desktop</h2>
+          <p>Virtual OS shell with Windows-like layout, file explorer, and browser panel.</p>
+          <div id="os-timer" style="margin-top:0.75rem;color:#7dfd8f;font-family:monospace;letter-spacing:0.08em; font-size: 60px;">TIME: --:--:--</div>
+        </div>
+        <button class="taskbar-button" id="backToDashboardBtn">Back to Dashboard</button>
+      </div>
+
+      <div class="desktop-grid">
+        <div class="os-panel os-window">
+          <div class="os-window-header">
+            <span class="os-window-title">File Explorer</span>
+            <span>My Files</span>
+          </div>
+          <div class="os-window-body">
+            <div class="os-file-item">Documents</div>
+            <div class="os-file-item">Projects</div>
+            <div class="os-file-item">Logs</div>
+            <div class="os-file-item">Downloads</div>
+            <div class="os-file-item">System</div>
+          </div>
+        </div>
+
+        <div class="os-panel os-window">
+          <div class="os-window-header">
+            <span class="os-window-title">Edge Explorer</span>
+            <span>https://tronex.local</span>
+          </div>
+          <div class="os-window-body">
+            <p>Welcome to the Tronex OS simulation environment. Launch apps, explore files, or open the terminal from the taskbar.</p>
+            <div class="os-quick-links">
+              <div class="os-quick-link">Open Terminal</div>
+              <div class="os-quick-link">Launch Editor</div>
+              <div class="os-quick-link">Settings</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="taskbar">
+        <div class="taskbar-item">
+          <span>Start</span>
+        </div>
+        <div class="taskbar-item">
+          <span>Tronex OS • Virtual Desktop</span>
+        </div>
+      </div>
+    </section>
+
+    <script src="diagnostics.js"></script>
+    <script src="timer.js"></script>
+    <script>
+      const usbCable = document.getElementById('usb-cable');
+      const piBoard = document.getElementById('pi-board');
+      const statusLed = document.getElementById('status-led');
+      const phase1Screen = document.getElementById('phase1-screen');
+      const phase1Container = document.getElementById('phase1-container');
+      const bootScreen = document.getElementById('boot-screen');
+      const terminalLog = document.getElementById('terminal-log');
+      const mainApp = document.getElementById('main-app');
+      const body = document.body;
+      const circuitBtn = document.getElementById('circuitBtn');
+      const statusMessage = document.getElementById('statusMessage');
+      const panelButtons = document.querySelectorAll('.panel-btn');
+      const panels = document.querySelectorAll('.panel');
+      const typewriter = document.getElementById('typewriter');
+      const volumeRange = document.getElementById('volumeRange');
+      const volumeValue = document.getElementById('volumeValue');
+      const motionToggle = document.getElementById('motionToggle');
+      const scrollbarToggle = document.getElementById('scrollbarToggle');
+      const scrollLog = document.getElementById('scrollLog');
+      const skipBootBtn = document.getElementById('skipBootBtn');
+      const savedAccountNote = document.getElementById('saved-account-note');
+      const launchOsBtn = document.getElementById('launchOsBtn');
+      const virtualOs = document.getElementById('virtual-os');
+      const backToDashboardBtn = document.getElementById('backToDashboardBtn');
+
+      function checkSavedAccount() {
+        const savedName = localStorage.getItem('tronexOsUsername');
+        const savedCreated = localStorage.getItem('tronexOsCreated') === 'true';
+        if (savedCreated) {
+          skipBootBtn.style.display = 'inline-flex';
+          savedAccountNote.textContent = `Saved account found: ${savedName || 'tronex'}. Skip USB boot to enter Tronex OS.`;
+        } else {
+          skipBootBtn.style.display = 'none';
+          savedAccountNote.textContent = '';
+        }
+      }
+
+      checkSavedAccount();
+
+      usbCable.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('text/plain', 'usb-cable');
+        event.dataTransfer.effectAllowed = 'move';
+        usbCable.classList.add('dragging');
+      });
+
+      usbCable.addEventListener('dragend', () => {
+        usbCable.classList.remove('dragging');
+      });
+
+      piBoard.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        piBoard.classList.add('board-hover');
+      });
+
+      piBoard.addEventListener('dragleave', () => {
+        piBoard.classList.remove('board-hover');
+      });
+
+      piBoard.addEventListener('drop', (event) => {
+        event.preventDefault();
+        piBoard.classList.remove('board-hover');
+        const type = event.dataTransfer.getData('text/plain');
+        if (type !== 'usb-cable') {
+          return;
+        }
+
+        usbCable.style.opacity = '0';
+        usbCable.style.pointerEvents = 'none';
+        statusLed.textContent = 'BOOTING';
+        statusLed.classList.add('on');
+        body.classList.add('flash');
+
+        setTimeout(() => {
+          body.classList.remove('flash');
+        }, 200);
+
+        setTimeout(() => {
+          phase1Container.classList.add('fade-out');
+          setTimeout(() => {
+            phase1Screen.style.display = 'none';
+            bootScreen.classList.add('active');
+            runDiagnosticBoot();
+          }, 800);
+        }, 1000);
+      });
+
+      circuitBtn.addEventListener('click', () => {
+        statusMessage.classList.toggle('active');
+        circuitBtn.textContent = statusMessage.classList.contains('active') ? 'Simulation Ready' : 'Check Simulation Status';
+      });
+
+      skipBootBtn.addEventListener('click', () => {
+        phase1Screen.style.display = 'none';
+        mainApp.classList.add('visible');
+        mainApp.classList.remove('hidden');
+        statusLed.textContent = 'READY';
+        statusLed.classList.add('on');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      launchOsBtn.addEventListener('click', () => {
+        virtualOs.classList.add('active');
+        mainApp.classList.add('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      backToDashboardBtn.addEventListener('click', () => {
+        virtualOs.classList.remove('active');
+        mainApp.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      panelButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          panelButtons.forEach((btn) => btn.classList.remove('active'));
+          panels.forEach((panel) => panel.classList.remove('active'));
+          button.classList.add('active');
+          document.getElementById(button.dataset.panel).classList.add('active');
+        });
+      });
+
+      const typedLines = [
+        'VIRTUAL ESP32 MODULE INITIALIZED...',
+        'VIRTUAL PI5 NETWORK ONLINE...',
+        'HACKER INTERFACE LOADED...',
+        'VIRTUAL DASHBOARD FEATURES ACTIVE...',
+      ];
+      let currentLine = 0;
+      let currentChar = 0;
+
+      function typeLine() {
+        const text = typedLines[currentLine];
+        if (currentChar <= text.length) {
+          typewriter.textContent = text.slice(0, currentChar);
+          currentChar += 1;
+          setTimeout(typeLine, 40);
+        } else {
+          setTimeout(() => {
+            currentChar = 0;
+            currentLine = (currentLine + 1) % typedLines.length;
+            typeLine();
+          }, 1400);
+        }
+      }
+
+      typeLine();
+    </script>
+  </body>
+</html>
