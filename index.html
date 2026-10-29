@@ -263,9 +263,6 @@
         padding: 2rem 2rem 6rem;
         background: url('./rtx.jpeg') center/cover no-repeat;
         color: var(--text);
-        <div id="os-timer" style="color:#7dfd8f; margin-top:1rem; font-family:monospace;">
-  OS Time: 00:00
-</div>
       }
 
       #virtual-os.active {
@@ -315,6 +312,61 @@
         padding: 1rem;
         line-height: 1.7;
         color: #c8ffb2;
+      }
+
+      .desktop-grid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+        align-items: start;
+      }
+
+      .os-toolbar, .browser-toolbar, .chat-compose {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        align-items: center;
+      }
+
+      .os-control, .browser-toolbar input, .chat-compose input, .api-key-input {
+        min-width: 0;
+        padding: 0.65rem 0.8rem;
+        border: 1px solid rgba(0, 255, 102, 0.25);
+        border-radius: 10px;
+        background: #041004;
+        color: var(--text-bright);
+        font: inherit;
+      }
+
+      .os-control, .browser-toolbar button, .chat-compose button {
+        padding: 0.65rem 0.8rem;
+        border: 1px solid rgba(0, 255, 102, 0.3);
+        border-radius: 10px;
+        background: rgba(0, 255, 102, 0.1);
+        color: var(--text-bright);
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .os-control:hover, .browser-toolbar button:hover, .chat-compose button:hover {
+        background: rgba(0, 255, 102, 0.2);
+      }
+
+      .explorer-list { display: grid; gap: 0.5rem; margin-top: 0.8rem; }
+      .os-file-item { margin: 0; text-align: left; font: inherit; color: var(--text-bright); }
+      .os-file-item.selected { outline: 1px solid var(--accent); }
+      .os-file-item small { display: block; opacity: 0.7; }
+      .browser-toolbar input { flex: 1 1 220px; }
+      .browser-frame { width: 100%; height: 340px; border: 1px solid rgba(0,255,102,.2); border-radius: 12px; background: white; }
+      .chat-history { height: 220px; overflow-y: auto; padding: 0.75rem; margin: 0.5rem 0; border: 1px solid rgba(0,255,102,.16); border-radius: 12px; background: #020802; }
+      .chat-message { margin: 0 0 .75rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .chat-message strong { color: var(--accent); }
+      .chat-compose input { flex: 1 1 220px; }
+      .small-note { font-size: .78rem; opacity: .78; line-height: 1.45; }
+
+      @media (max-width: 620px) {
+        #virtual-os { padding: 1rem 1rem 5rem; }
+        .os-header { align-items: flex-start; }
+        #os-timer { font-size: 1.5rem !important; }
+        .taskbar { padding: 0 .7rem; font-size: .75rem; }
       }
 
       .os-file-item {
@@ -738,7 +790,7 @@
     <main id="main-app">
       <div class="container">
         <div class="breadcrumbs">
-          <span>Home</span> › <span>Welcome</span>
+          <span>Home</span> â€º <span>Welcome</span>
         </div>
 
         <div class="panel-nav">
@@ -804,7 +856,7 @@
               </div>
               <div class="status-card">
                 <strong>Network</strong>
-                <p>Latency stable • 23ms</p>
+                <p>Latency stable â€¢ 23ms</p>
               </div>
               <div class="status-card">
                 <strong>Board</strong>
@@ -876,29 +928,56 @@
         <div class="os-panel os-window">
           <div class="os-window-header">
             <span class="os-window-title">File Explorer</span>
-            <span>My Files</span>
+            <span id="explorer-path">Home</span>
           </div>
           <div class="os-window-body">
-            <div class="os-file-item">Documents</div>
-            <div class="os-file-item">Projects</div>
-            <div class="os-file-item">Logs</div>
-            <div class="os-file-item">Downloads</div>
-            <div class="os-file-item">System</div>
+            <div class="os-toolbar">
+              <button class="os-control" id="folder-up-btn" type="button">â† Up</button>
+              <button class="os-control" id="new-document-btn" type="button">ï¼‹ New document</button>
+              <button class="os-control" id="upload-files-btn" type="button">â†‘ Add files</button>
+              <button class="os-control" id="download-folder-btn" type="button">â†“ Download folder (.zip)</button>
+              <input id="upload-files-input" type="file" multiple hidden />
+            </div>
+            <p id="explorer-status" class="small-note" role="status">Choose a folder. Your files stay in this browser unless you download them.</p>
+            <div class="explorer-list" id="explorer-list"></div>
+            <div class="os-toolbar" style="margin-top:.8rem">
+              <button class="os-control" id="edit-file-btn" type="button">Open / edit selected</button>
+              <button class="os-control" id="download-file-btn" type="button">â†“ Download selected file</button>
+              <button class="os-control" id="delete-file-btn" type="button">Delete selected file</button>
+            </div>
           </div>
         </div>
 
         <div class="os-panel os-window">
           <div class="os-window-header">
-            <span class="os-window-title">Edge Explorer</span>
-            <span>https://tronex.local</span>
+            <span class="os-window-title">Internet Explorer</span>
+            <span>Browser</span>
           </div>
           <div class="os-window-body">
-            <p>Welcome to the Tronex OS simulation environment. Launch apps, explore files, or open the terminal from the taskbar.</p>
-            <div class="os-quick-links">
-              <div class="os-quick-link">Open Terminal</div>
-              <div class="os-quick-link">Launch Editor</div>
-              <div class="os-quick-link">Settings</div>
-            </div>
+            <form id="browser-form" class="browser-toolbar">
+              <input id="browser-address" type="search" placeholder="Search Google or enter a website address" aria-label="Search or website address" />
+              <button type="submit">Go</button>
+              <button type="button" id="open-browser-tab">Open in new tab</button>
+            </form>
+            <p id="browser-status" class="small-note" role="status">Search results open in a new tab; some sites block embedded previews.</p>
+            <iframe id="browser-frame" class="browser-frame" title="Web page preview" referrerpolicy="no-referrer" sandbox="allow-forms allow-scripts allow-popups"></iframe>
+          </div>
+        </div>
+
+        <div class="os-panel os-window">
+          <div class="os-window-header">
+            <span class="os-window-title">TRONEX Assistant</span>
+            <span>Gemini</span>
+          </div>
+          <div class="os-window-body">
+            <label for="gemini-api-key" class="small-note">Gemini API key (kept in this browser session)</label>
+            <input id="gemini-api-key" class="api-key-input" type="password" autocomplete="off" placeholder="Paste your Google AI Studio API key" style="width:100%;margin:.35rem 0" />
+            <p class="small-note">This static site calls Google directly. Donâ€™t use a production or unrestricted key here; for a public app, put the key behind a server.</p>
+            <div id="chat-history" class="chat-history" aria-live="polite"><p class="chat-message"><strong>TRONEX:</strong> Hi! Add your Gemini key above to chat.</p></div>
+            <form id="chat-form" class="chat-compose">
+              <input id="chat-input" type="text" maxlength="2000" placeholder="Ask TRONEX somethingâ€¦" aria-label="Message to TRONEX" />
+              <button type="submit" id="chat-send-btn">Send</button>
+            </form>
           </div>
         </div>
       </div>
@@ -908,13 +987,14 @@
           <span>Start</span>
         </div>
         <div class="taskbar-item">
-          <span>Tronex OS • Virtual Desktop</span>
+          <span>Tronex OS â€¢ Virtual Desktop</span>
         </div>
       </div>
     </section>
 
     <script src="diagnostics.js"></script>
     <script src="timer.js"></script>
+    <script src="os.js"></script>
     <script>
       const usbCable = document.getElementById('usb-cable');
       const piBoard = document.getElementById('pi-board');
@@ -1066,3 +1146,4 @@
     </script>
   </body>
 </html>
+
